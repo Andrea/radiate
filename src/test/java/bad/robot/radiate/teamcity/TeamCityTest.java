@@ -9,6 +9,7 @@ import org.hamcrest.Matchers;
 import org.jmock.Expectations;
 import org.jmock.Mockery;
 import org.jmock.integration.junit4.JUnit4Mockery;
+import org.jmock.lib.concurrent.Synchroniser;
 import org.junit.Rule;
 import org.junit.Test;
 
@@ -25,7 +26,9 @@ import static org.hamcrest.MatcherAssert.assertThat;
 
 public class TeamCityTest {
 
-    @Rule public Mockery context = new JUnit4Mockery();
+    @Rule public Mockery context = new JUnit4Mockery() {{
+        setThreadingPolicy(new Synchroniser());
+    }};
 
     private final Headers accept = headers(header("Accept", "application/json"));
     private final HttpClient http = context.mock(HttpClient.class);
@@ -40,7 +43,7 @@ public class TeamCityTest {
     private final Unmarshaller<HttpResponse, Iterable<Project>> projectsUnmarshaller = context.mock(Unmarshaller.class, "projects unmarshaller");
     private final Unmarshaller<HttpResponse, Project> projectUnmarshaller = context.mock(Unmarshaller.class, "project unmarshaller");
     private final Unmarshaller<HttpResponse, Build> buildUnmarshaller = context.mock(Unmarshaller.class, "build unmarshaller");
-    private final TeamCity teamcity = new TeamCity(new Server("example.com"), http, projectsUnmarshaller, projectUnmarshaller, buildUnmarshaller);
+    private final TeamCity teamcity = new TeamCity(new Server("example.com", 8111), http, projectsUnmarshaller, projectUnmarshaller, buildUnmarshaller);
 
     @Test
     public void shouldRetrieveProjects() throws MalformedURLException {
@@ -67,10 +70,10 @@ public class TeamCityTest {
         final Project anotherProject = Any.project(anotherBuildTypes);
 
         context.checking(new Expectations() {{
-            exactly(2).of(http).get(new URL("http://example.com:8111" + first(projects).getHref()), accept); will(returnValue(ok));
-            exactly(2).of(http).get(new URL("http://example.com:8111" + second(projects).getHref()), accept); will(returnValue(anotherOk));
-            exactly(2).of(projectUnmarshaller).unmarshall(ok); will(returnValue(project));
-            exactly(2).of(projectUnmarshaller).unmarshall(anotherOk); will(returnValue(anotherProject));
+            oneOf(http).get(new URL("http://example.com:8111" + first(projects).getHref()), accept); will(returnValue(ok));
+            oneOf(http).get(new URL("http://example.com:8111" + second(projects).getHref()), accept); will(returnValue(anotherOk));
+            oneOf(projectUnmarshaller).unmarshall(ok); will(returnValue(project));
+            oneOf(projectUnmarshaller).unmarshall(anotherOk); will(returnValue(anotherProject));
         }});
 
         Iterable<BuildType> actual = teamcity.retrieveBuildTypes(projects);
@@ -90,7 +93,7 @@ public class TeamCityTest {
         final BuildType buildType = Any.buildType();
         final Build build = Any.runningBuild();
         context.checking(new Expectations() {{
-            oneOf(http).get(new URL("http://example.com:8111/guestAuth/app/rest/builds/buildType:" + buildType.getName() + ",running:true"), accept); will(returnValue(ok));
+            oneOf(http).get(new URL("http://example.com:8111/guestAuth/app/rest/builds/buildType:" + buildType.getId() + ",running:true"), accept); will(returnValue(ok));
             oneOf(buildUnmarshaller).unmarshall(ok); will(returnValue(build));
         }});
         assertThat(teamcity.retrieveLatestBuild(buildType), is(build));
@@ -100,7 +103,7 @@ public class TeamCityTest {
     public void shouldHandleHttpErrorWhenRetrievingLatestRunningBuild() throws MalformedURLException {
         final BuildType buildType = Any.buildType();
         context.checking(new Expectations() {{
-            oneOf(http).get(with(containsPath(buildType.getName() + ",running:true")), with(any(Headers.class))); will(returnValue(error));
+            oneOf(http).get(with(containsPath(buildType.getId() + ",running:true")), with(any(Headers.class))); will(returnValue(error));
         }});
         teamcity.retrieveLatestBuild(buildType);
     }
@@ -111,7 +114,7 @@ public class TeamCityTest {
         final Build build = Any.build();
         context.checking(new Expectations() {{
             oneOf(http).get(with(containsPath("running:true")), with(any(Headers.class))); will(returnValue(notFound));
-            oneOf(http).get(new URL("http://example.com:8111/guestAuth/app/rest/builds/buildType:" + buildType.getName()), accept); will(returnValue(ok));
+            oneOf(http).get(new URL("http://example.com:8111/guestAuth/app/rest/builds/buildType:" + buildType.getId()), accept); will(returnValue(ok));
             oneOf(buildUnmarshaller).unmarshall(ok); will(returnValue(build));
         }});
         assertThat(teamcity.retrieveLatestBuild(buildType), is(build));
@@ -122,9 +125,35 @@ public class TeamCityTest {
         final BuildType buildType = Any.buildType();
         context.checking(new Expectations() {{
             oneOf(http).get(with(containsPath("running:true")), with(any(Headers.class))); will(returnValue(notFound));
-            oneOf(http).get(new URL("http://example.com:8111/guestAuth/app/rest/builds/buildType:" + buildType.getName()), accept); will(returnValue(error));
+            oneOf(http).get(new URL("http://example.com:8111/guestAuth/app/rest/builds/buildType:" + buildType.getId()), accept); will(returnValue(error));
         }});
         teamcity.retrieveLatestBuild(buildType);
     }
 
+    @Test
+    public void shouldHandleProjectsWithNoBuildHistory() throws MalformedURLException {
+        final BuildType buildType = Any.buildType();
+        context.checking(new Expectations() {{
+            oneOf(http).get(with(containsPath("running:true")), with(any(Headers.class))); will(returnValue(notFound));
+            oneOf(http).get(new URL("http://example.com:8111/guestAuth/app/rest/builds/buildType:" + buildType.getId()), accept); will(returnValue(notFound));
+        }});
+        assertThat(teamcity.retrieveLatestBuild(buildType), is(((Build) new NoBuild())));
+    }
+
+    private static class StubConfiguration implements TeamCityConfiguration {
+        @Override
+        public String host() {
+            return "example.com";
+        }
+
+        @Override
+        public Integer port() {
+            return 8111;
+        }
+
+        @Override
+        public Iterable<Project> filter(Iterable<Project> projects) {
+            return projects;
+        }
+    }
 }
