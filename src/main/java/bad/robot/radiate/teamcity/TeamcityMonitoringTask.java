@@ -1,7 +1,6 @@
 package bad.robot.radiate.teamcity;
 
-import bad.robot.http.HttpClient;
-import bad.robot.radiate.Environment;
+import bad.robot.http.CommonHttpClient;
 import bad.robot.radiate.Status;
 import bad.robot.radiate.monitor.MonitoringTask;
 import bad.robot.radiate.ui.Ui;
@@ -9,33 +8,36 @@ import com.googlecode.totallylazy.Callable1;
 
 import static bad.robot.http.HttpClients.anApacheClient;
 import static bad.robot.radiate.Status.Unknown;
-import static bad.robot.radiate.teamcity.StatusAggregator.statusAggregator;
+import static bad.robot.radiate.teamcity.StatusAggregator.aggregated;
 import static com.googlecode.totallylazy.Sequences.sequence;
 
 public class TeamcityMonitoringTask implements MonitoringTask {
 
     private final Ui ui;
+    private final TeamCityConfiguration configuration;
+    private final CommonHttpClient http = anApacheClient();
+    private final Server server;
+    private final TeamCity teamcity;
 
-    public TeamcityMonitoringTask(Ui ui) {
+    public TeamcityMonitoringTask(Ui ui, TeamCityConfiguration configuration) {
         this.ui = ui;
+        this.configuration = configuration;
+        this.server = new Server(configuration.host(), configuration.port());
+        this.teamcity = new TeamCity(server, http, new JsonProjectsUnmarshaller(), new JsonProjectUnmarshaller(), new JsonBuildUnmarshaller());
     }
 
     @Override
     public Status call() throws Exception {
         try {
-            String host = Environment.getEnvironmentVariable("teamcity.host");
-            String port = Environment.getEnvironmentVariable("teamcity.port", "8111");
-            Server server = new Server(host, Integer.valueOf(port));
-            HttpClient http = anApacheClient();
-            TeamCity teamcity = new TeamCity(server, http, new JsonProjectsUnmarshaller(), new JsonProjectUnmarshaller(), new JsonBuildUnmarshaller());
-            Iterable<Project> projects = teamcity.retrieveProjects();
+            Iterable<Project> projects = configuration.filter(teamcity.retrieveProjects());
             Iterable<BuildType> buildTypes = teamcity.retrieveBuildTypes(projects);
             Iterable<Status> statuses = sequence(buildTypes).mapConcurrently(toStatuses(teamcity));
-            Status status = statusAggregator(statuses).getStatus();
+            Status status = aggregated(statuses).getStatus();
             ui.update(status);
             return status;
         } catch (Exception e) {
             ui.update(e);
+            e.printStackTrace(System.err);
             return Unknown;
         }
     }
@@ -45,7 +47,7 @@ public class TeamcityMonitoringTask implements MonitoringTask {
             @Override
             public Status call(BuildType buildType) throws Exception {
                 Build build = teamcity.retrieveLatestBuild(buildType);
-                System.out.printf("%s: #%s (id:%s) - %s (%s) %s %s%n", build.getBuildType().getName(), build.getNumber(), build.getId(), build.getStatus(), build.getStatusText(), build.getBuildType().getProjectName(), Thread.currentThread());
+                System.out.printf("%s: #%s (id:%s) - %s (%s) %s %n", build.getBuildType().getName(), build.getNumber(), build.getId(), build.getStatus(), build.getStatusText(), build.getBuildType().getProjectName());
                 return build.getStatus();
             }
         };

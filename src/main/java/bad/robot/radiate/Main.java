@@ -1,16 +1,12 @@
 package bad.robot.radiate;
 
 import bad.robot.radiate.monitor.Monitor;
-import bad.robot.radiate.monitor.MonitoringTask;
-import bad.robot.radiate.monitor.MonitoringTasksFactory;
 import bad.robot.radiate.monitor.MonitoringThreadFactory;
-import bad.robot.radiate.teamcity.TeamcityMonitoringTask;
+import bad.robot.radiate.teamcity.TeamCityMonitoring;
 import bad.robot.radiate.ui.SwingUi;
 
-import java.util.List;
 import java.util.concurrent.ScheduledExecutorService;
 
-import static com.googlecode.totallylazy.Lists.list;
 import static java.util.concurrent.Executors.newScheduledThreadPool;
 
 public class Main {
@@ -22,21 +18,16 @@ public class Main {
         Monitor monitor = new Monitor(threadPool, new TeamCityMonitoring(ui));
         monitor.beginMonitoring();
         ui.start();
-//        monitor.shutdown();
+        addShutdown(monitor);
     }
 
-    private static class TeamCityMonitoring implements MonitoringTasksFactory {
-        private final SwingUi ui;
-
-        public TeamCityMonitoring(SwingUi ui) {
-            this.ui = ui;
-        }
-
-        @Override
-        public List<? extends MonitoringTask> create() {
-            return list(new TeamcityMonitoringTask(ui));
-        }
-
+    private static void addShutdown(final Monitor monitor) {
+        Runtime.getRuntime().addShutdownHook(new Thread() {
+            @Override
+            public void run() {
+                monitor.shutdown();
+            }
+        });
     }
 
 }

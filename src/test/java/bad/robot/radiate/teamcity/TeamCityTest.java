@@ -43,7 +43,7 @@ public class TeamCityTest {
     private final Unmarshaller<HttpResponse, Iterable<Project>> projectsUnmarshaller = context.mock(Unmarshaller.class, "projects unmarshaller");
     private final Unmarshaller<HttpResponse, Project> projectUnmarshaller = context.mock(Unmarshaller.class, "project unmarshaller");
     private final Unmarshaller<HttpResponse, Build> buildUnmarshaller = context.mock(Unmarshaller.class, "build unmarshaller");
-    private final TeamCity teamcity = new TeamCity(new Server("example.com"), http, projectsUnmarshaller, projectUnmarshaller, buildUnmarshaller);
+    private final TeamCity teamcity = new TeamCity(new Server("example.com", 8111), http, projectsUnmarshaller, projectUnmarshaller, buildUnmarshaller);
 
     @Test
     public void shouldRetrieveProjects() throws MalformedURLException {
@@ -140,4 +140,20 @@ public class TeamCityTest {
         assertThat(teamcity.retrieveLatestBuild(buildType), is(((Build) new NoBuild())));
     }
 
+    private static class StubConfiguration implements TeamCityConfiguration {
+        @Override
+        public String host() {
+            return "example.com";
+        }
+
+        @Override
+        public Integer port() {
+            return 8111;
+        }
+
+        @Override
+        public Iterable<Project> filter(Iterable<Project> projects) {
+            return projects;
+        }
+    }
 }

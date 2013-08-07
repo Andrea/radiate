@@ -10,18 +10,11 @@ import static java.lang.String.format;
 
 public class Server {
 
-    public static final int defaultPort = 8111;
-
     private final String host;
     private final Integer port;
 
-    public Server(String host) {
-        this(host, defaultPort);
-    }
-
     public Server(String host, Integer port) {
-        validate(host, port);
-        this.host = host;
+        this.host = host.replace("http://", "");
         this.port = port;
     }
 
@@ -33,14 +26,8 @@ public class Server {
         return Url.url(baseUrl() + buildsEndpoint.getHref() + locator.build());
     }
 
-    private static void validate(String host, Integer port) {
-        if (host == null || port == null)
-            throw new IllegalArgumentException("please supply a host name and port");
-        if (host.contains("http"))
-            throw new IllegalArgumentException("no need to specify a protocol, just give me a hostname");
-    }
-
     private String baseUrl() {
         return format("http://%s:%d", host, port);
     }
+
 }
