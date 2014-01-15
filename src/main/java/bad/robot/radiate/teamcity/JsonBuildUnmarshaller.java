@@ -1,6 +1,7 @@
 package bad.robot.radiate.teamcity;
 
 import bad.robot.http.HttpResponse;
+import bad.robot.radiate.JsonResponse;
 import bad.robot.radiate.Unmarshaller;
 import com.google.gson.Gson;
 

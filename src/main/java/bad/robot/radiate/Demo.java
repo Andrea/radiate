@@ -19,7 +19,7 @@ class Demo extends ThreadSafeObservable implements MonitoringTasksFactory {
 
     private static class DemoMonitoringTask extends ThreadSafeObservable implements MonitoringTask {
 
-        private DemonstrativeMonitor monitor = new DemonstrativeMonitor.BusyMonitorExample();
+        private DemonstrativeMonitor monitor = new DemonstrativeMonitor.ProgressingMonitorExample();
 
         @Override
         public void run() {
@@ -71,7 +71,7 @@ class Demo extends ThreadSafeObservable implements MonitoringTasksFactory {
                 Status status = randomStatus();
                 observable.notifyObservers(status);
                 observable.notifyObservers(new Information(format("Example of an overtime monitor with random status of %s", status)));
-                return new ErrorExample();
+                return new ProgressingMonitorExample();
             }
 
             private static class Complete extends Progress {

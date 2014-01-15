@@ -1,4 +1,4 @@
-package bad.robot.radiate.teamcity;
+package bad.robot.radiate;
 
 import bad.robot.http.Header;
 import bad.robot.http.HttpResponse;
@@ -6,7 +6,7 @@ import com.googlecode.totallylazy.Predicate;
 
 import static com.googlecode.totallylazy.Sequences.sequence;
 
-class JsonResponse {
+public class JsonResponse {
 
     private final HttpResponse response;
 

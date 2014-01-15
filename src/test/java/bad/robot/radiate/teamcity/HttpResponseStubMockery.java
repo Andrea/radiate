@@ -7,6 +7,7 @@ import org.jmock.Expectations;
 import org.jmock.integration.junit4.JUnitRuleMockery;
 
 import static bad.robot.http.HeaderList.headers;
+import static bad.robot.http.HeaderPair.*;
 
 public class HttpResponseStubMockery extends JUnitRuleMockery {
 
@@ -19,7 +20,7 @@ public class HttpResponseStubMockery extends JUnitRuleMockery {
                     return content;
                 }
             }));
-            allowing(response).getHeaders(); will(returnValue(headers(HeaderPair.header("content-type", "application/json"))));
+            allowing(response).getHeaders(); will(returnValue(headers(header("content-type", "application/json"))));
         }});
         return response;
     }
